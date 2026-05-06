@@ -41,6 +41,17 @@ lipo -info "${HOOK_BUILD}/${DYLIB_NAME}"
 mkdir -p "${DEST}/Contents/Frameworks"
 cp "${HOOK_BUILD}/${DYLIB_NAME}" "${DEST}/Contents/Frameworks/${DYLIB_NAME}"
 
+# LSEnvironment is inherited by Chromium helper processes. @executable_path is
+# resolved per process, so each nested *.app looks for ../Frameworks next to its
+# own MacOS binary—not the main bundle. Mirror the dylib into every helper.
+shopt -s nullglob
+for helper_app in "${DEST}/Contents/Frameworks/"*.app; do
+  [[ -d "${helper_app}/Contents" ]] || continue
+  mkdir -p "${helper_app}/Contents/Frameworks"
+  cp "${HOOK_BUILD}/${DYLIB_NAME}" "${helper_app}/Contents/Frameworks/${DYLIB_NAME}"
+done
+shopt -u nullglob
+
 PLIST="${DEST}/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleName LockedIn Browser (Cursor · Hot Pink)" "${PLIST}" || true
 /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string LockedIn Browser · Hot Pink" "${PLIST}" 2>/dev/null || \

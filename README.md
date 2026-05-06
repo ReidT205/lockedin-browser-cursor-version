@@ -29,6 +29,8 @@ The script adds `DYLD_INSERT_LIBRARIES` via `LSEnvironment` and applies the `com
 
 The hook is built as a **universal** dylib (`x86_64` + `arm64`) because LockDown Browser’s main executable is **x86_64** (Rosetta on Apple Silicon); an **arm64-only** inject library makes dyld exit with *incompatible architecture*.
 
+Helpers (GPU, Renderer, …) inherit `DYLD_INSERT_LIBRARIES`; `@executable_path` is relative to **each** helper. The packager therefore copies `libLockedInPinkTabs.dylib` into **every** nested `Contents/Frameworks/*.app` as well as the main app.
+
 ## Repository
 
 Tooling lives at [github.com/ReidT205/lockedin-browser-cursor-version](https://github.com/ReidT205/lockedin-browser-cursor-version). Optional: attach a zipped `dist/*.app` as a **Release** asset instead of committing Respondus binaries to git.
