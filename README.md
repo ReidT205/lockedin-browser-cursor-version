@@ -27,6 +27,6 @@ Output: `dist/LockedIn-Browser-Cursor-HotPink.app` with display name **LockedIn 
 
 The script adds `DYLD_INSERT_LIBRARIES` via `LSEnvironment` and applies the `com.apple.security.cs.disable-library-validation` entitlement so the hook library can load under a re-signed bundle.
 
-## GitHub
+## Repository
 
-Push this folder (without vendoring large binaries if you prefer) to a repository named `lockedin-browser-cursor-version`. Optional: attach `dist/*.app` as a **Release** asset instead of committing it to git.
+Tooling lives at [github.com/ReidT205/lockedin-browser-cursor-version](https://github.com/ReidT205/lockedin-browser-cursor-version). Optional: attach a zipped `dist/*.app` as a **Release** asset instead of committing Respondus binaries to git.
