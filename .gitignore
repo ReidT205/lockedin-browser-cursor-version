@@ -1,0 +1,4 @@
+dist/
+*.app/
+.DS_Store
+*.dylib.dSYM/

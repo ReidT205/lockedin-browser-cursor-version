@@ -1,0 +1,32 @@
+# lockedin-browser-cursor-version
+
+This repository contains a small **Objective‑C injectable library** that turns the LockDown Browser **tab strip / inactive tab fill** (the ChromiumTabs `247/255` calibrated white) into **hot pink** (`#FF69B4`), plus a script that copies an existing LockDown Browser `.app`, embeds the library, sets a **labeled** bundle name, and **re-signs** the bundle ad hoc so it can run locally.
+
+## Legal / academic integrity
+
+LockDown Browser is proprietary software owned by Respondus. You must comply with its license, your institution’s policies, and applicable law. This tooling is provided for **local customization on copies you are allowed to modify**; redistribution of Respondus binaries may be restricted.
+
+## Build the labeled app
+
+1. Place a LockDown Browser `.app` on disk (or a folder whose layout is `Contents/MacOS/...`).
+2. Run:
+
+```bash
+cd lockedin-browser-cursor-version
+chmod +x scripts/package_hot_pink_app.sh
+scripts/package_hot_pink_app.sh "/path/to/LockDown Browser.app"
+```
+
+If this repo sits next to a `Contents` folder (typical when opened as an app bundle in Cursor), you can omit the path:
+
+```bash
+scripts/package_hot_pink_app.sh
+```
+
+Output: `dist/LockedIn-Browser-Cursor-HotPink.app` with display name **LockedIn Browser · Hot Pink** and version **2.1.5-cursor-hotpink**.
+
+The script adds `DYLD_INSERT_LIBRARIES` via `LSEnvironment` and applies the `com.apple.security.cs.disable-library-validation` entitlement so the hook library can load under a re-signed bundle.
+
+## GitHub
+
+Push this folder (without vendoring large binaries if you prefer) to a repository named `lockedin-browser-cursor-version`. Optional: attach `dist/*.app` as a **Release** asset instead of committing it to git.
