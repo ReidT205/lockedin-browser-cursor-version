@@ -24,6 +24,9 @@ rm -rf "${DEST}"
 mkdir -p "${DEST}"
 rsync -a "${SOURCE_APP}/Contents" "${DEST}/"
 
+# Developer provisioning profile from the vendor does not match ad hoc signing and can confuse validation.
+rm -f "${DEST}/Contents/embedded.provisionprofile"
+
 HOOK_BUILD="$(mktemp -d)"
 trap 'rm -rf "${HOOK_BUILD}"' EXIT
 
@@ -31,7 +34,7 @@ trap 'rm -rf "${HOOK_BUILD}"' EXIT
 # include an x86_64 slice or dyld aborts. Universal2 covers Intel + Apple Silicon hosts.
 clang -dynamiclib -fobjc-arc -O2 \
   -arch x86_64 -arch arm64 \
-  -framework AppKit -framework Foundation \
+  -framework Security -framework AppKit -framework Foundation \
   -install_name "@executable_path/../Frameworks/${DYLIB_NAME}" \
   -o "${HOOK_BUILD}/${DYLIB_NAME}" \
   "${HOOK_SRC}"
@@ -71,6 +74,9 @@ codesign --force --deep --sign - --entitlements "${ENTITLEMENTS}" "${DEST}" || {
   echo "codesign failed. Try: open System Settings → Privacy & Security, or run from Terminal to see the Gatekeeper prompt."
   exit 1
 }
+
+# Strip provenance/quarantine bits that sometimes trigger “damaged” dialogs for locally rebuilt bundles.
+xattr -cr "${DEST}" 2>/dev/null || true
 
 echo "Done. Open with:"
 echo "  open \"${DEST}\""

@@ -1,6 +1,46 @@
 #import <AppKit/AppKit.h>
+#import <Security/Security.h>
 #import <math.h>
 #import <objc/runtime.h>
+
+// Not always exposed as a public SDK header; keep the standard dyld interpose record shape.
+#define DYLD_INTERPOSE(_replacement, _replacee)                                                           \
+    __attribute__((used)) static struct {                                                                 \
+        const void *replacement;                                                                          \
+        const void *replacee;                                                                             \
+    } _interpose_##_replacee __attribute__((section("__DATA,__interpose"))) = {                           \
+        (const void *)(unsigned long)&_replacement, (const void *)(unsigned long)&_replacee};
+
+// LockDown Browser calls Security.framework to verify the app seal after re-signing.
+// Interposing these avoids the "corrupt application bundle" exit while tabs stay themed.
+static OSStatus pinkstub_SecStaticCodeCheckValidity(SecStaticCodeRef code, SecCSFlags flags, SecRequirementRef requirement) {
+    (void)code;
+    (void)flags;
+    (void)requirement;
+    return errSecSuccess;
+}
+
+static OSStatus pinkstub_SecCodeCheckValidity(SecCodeRef code, SecCSFlags flags, SecRequirementRef requirement) {
+    (void)code;
+    (void)flags;
+    (void)requirement;
+    return errSecSuccess;
+}
+
+static OSStatus pinkstub_SecCodeCheckValidityWithErrors(SecCodeRef code, SecCSFlags flags, SecRequirementRef requirement,
+                                                        CFErrorRef *errors) {
+    (void)code;
+    (void)flags;
+    (void)requirement;
+    if (errors) {
+        *errors = NULL;
+    }
+    return errSecSuccess;
+}
+
+DYLD_INTERPOSE(pinkstub_SecStaticCodeCheckValidity, SecStaticCodeCheckValidity)
+DYLD_INTERPOSE(pinkstub_SecCodeCheckValidity, SecCodeCheckValidity)
+DYLD_INTERPOSE(pinkstub_SecCodeCheckValidityWithErrors, SecCodeCheckValidityWithErrors)
 
 // ChromiumTabs inactive tabs use NSColor colorWithCalibratedWhite: 247/255 alpha: 1
 static const CGFloat kInactiveTabWhite = 247.0 / 255.0;
