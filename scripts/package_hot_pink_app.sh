@@ -44,14 +44,20 @@ lipo -info "${HOOK_BUILD}/${DYLIB_NAME}"
 mkdir -p "${DEST}/Contents/Frameworks"
 cp "${HOOK_BUILD}/${DYLIB_NAME}" "${DEST}/Contents/Frameworks/${DYLIB_NAME}"
 
-# LSEnvironment is inherited by Chromium helper processes. @executable_path is
-# resolved per process, so each nested *.app looks for ../Frameworks next to its
-# own MacOS binary—not the main bundle. Mirror the dylib into every helper.
+# Helpers have their own Info.plist LSEnvironment (often only MallocNanoZone). That
+# can replace inherited env so DYLD_INSERT_LIBRARIES never reaches GPU/Renderer/etc.
+# Mirror the dylib and merge DYLD_INSERT_LIBRARIES into every nested helper bundle.
 shopt -s nullglob
 for helper_app in "${DEST}/Contents/Frameworks/"*.app; do
   [[ -d "${helper_app}/Contents" ]] || continue
   mkdir -p "${helper_app}/Contents/Frameworks"
   cp "${HOOK_BUILD}/${DYLIB_NAME}" "${helper_app}/Contents/Frameworks/${DYLIB_NAME}"
+  hp="${helper_app}/Contents/Info.plist"
+  if [[ -f "${hp}" ]]; then
+    /usr/libexec/PlistBuddy -c "Add :LSEnvironment dict" "${hp}" 2>/dev/null || true
+    /usr/libexec/PlistBuddy -c "Add :LSEnvironment:DYLD_INSERT_LIBRARIES string @executable_path/../Frameworks/${DYLIB_NAME}" "${hp}" 2>/dev/null || \
+      /usr/libexec/PlistBuddy -c "Set :LSEnvironment:DYLD_INSERT_LIBRARIES @executable_path/../Frameworks/${DYLIB_NAME}" "${hp}"
+  fi
 done
 shopt -u nullglob
 

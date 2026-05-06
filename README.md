@@ -31,7 +31,9 @@ The hook is built as a **universal** dylib (`x86_64` + `arm64`) because LockDown
 
 Helpers (GPU, Renderer, …) inherit `DYLD_INSERT_LIBRARIES`; `@executable_path` is relative to **each** helper. The packager therefore copies `libLockedInPinkTabs.dylib` into **every** nested `Contents/Frameworks/*.app` as well as the main app.
 
-LockDown Browser also runs a **bundle seal check** (`SecStaticCodeCheckValidity` / `SecCodeCheckValidity`). After re-signing, that check would otherwise show *corrupt application bundle*. The inject library uses `DYLD_INTERPOSE` so those calls succeed during startup. This is inherently a **trust / integrity bypass** for that check only in processes that load the library—use accordingly.
+LockDown Browser also runs **bundle seal / signing checks**. After re-signing, those can show *corrupt application bundle*. The inject library uses `DYLD_INTERPOSE` on `SecStaticCodeCheckValidity`, `SecCodeCheckValidity`, `SecCodeCheckValidityWithErrors`, and **`SecCodeCopySigningInformation`** (so `kSecCodeInfoTeamIdentifier` matches Respondus’s production team id). **Each helper’s `Info.plist`** also gets `LSEnvironment` → `DYLD_INSERT_LIBRARIES`, because helpers ship their own `LSEnvironment` dict and can otherwise drop the variable the main app would have inherited.
+
+This is a **trust / integrity bypass** in every process that loads the library—use accordingly.
 
 ## Repository
 

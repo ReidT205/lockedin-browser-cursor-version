@@ -1,5 +1,7 @@
 #import <AppKit/AppKit.h>
 #import <Security/Security.h>
+#import <dlfcn.h>
+#import <dispatch/dispatch.h>
 #import <math.h>
 #import <objc/runtime.h>
 
@@ -11,8 +13,10 @@
     } _interpose_##_replacee __attribute__((section("__DATA,__interpose"))) = {                           \
         (const void *)(unsigned long)&_replacement, (const void *)(unsigned long)&_replacee};
 
-// LockDown Browser calls Security.framework to verify the app seal after re-signing.
-// Interposing these avoids the "corrupt application bundle" exit while tabs stay themed.
+// Respondus production Team ID (from the stock Info.plist / code signature).
+static const char kVendorTeamID[] = "8CA6NAN723";
+
+// --- Code signing: validity hooks (some paths only consult these) ---
 static OSStatus pinkstub_SecStaticCodeCheckValidity(SecStaticCodeRef code, SecCSFlags flags, SecRequirementRef requirement) {
     (void)code;
     (void)flags;
@@ -38,9 +42,41 @@ static OSStatus pinkstub_SecCodeCheckValidityWithErrors(SecCodeRef code, SecCSFl
     return errSecSuccess;
 }
 
+// --- Signing metadata: many apps read kSecCodeInfoTeamIdentifier after CopySigningInformation ---
+typedef OSStatus (*SecCodeCopySigningInformation_fn)(SecCodeRef, SecCSFlags, CFDictionaryRef *_Nonnull);
+
+static OSStatus pinkstub_SecCodeCopySigningInformation(SecCodeRef code, SecCSFlags flags, CFDictionaryRef *information) {
+    static SecCodeCopySigningInformation_fn orig_fn;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        orig_fn = (SecCodeCopySigningInformation_fn)dlsym(RTLD_NEXT, "SecCodeCopySigningInformation");
+    });
+    if (!orig_fn || !information) {
+        return errSecParam;
+    }
+    OSStatus st = orig_fn(code, flags, information);
+    if (st != errSecSuccess || !*information) {
+        return st;
+    }
+    CFMutableDictionaryRef m = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, *information);
+    if (!m) {
+        return st;
+    }
+    CFRelease(*information);
+    *information = m;
+    CFStringRef team =
+        CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, kVendorTeamID, kCFStringEncodingUTF8, kCFAllocatorNull);
+    if (team) {
+        CFDictionarySetValue(m, kSecCodeInfoTeamIdentifier, team);
+        CFRelease(team);
+    }
+    return errSecSuccess;
+}
+
 DYLD_INTERPOSE(pinkstub_SecStaticCodeCheckValidity, SecStaticCodeCheckValidity)
 DYLD_INTERPOSE(pinkstub_SecCodeCheckValidity, SecCodeCheckValidity)
 DYLD_INTERPOSE(pinkstub_SecCodeCheckValidityWithErrors, SecCodeCheckValidityWithErrors)
+DYLD_INTERPOSE(pinkstub_SecCodeCopySigningInformation, SecCodeCopySigningInformation)
 
 // ChromiumTabs inactive tabs use NSColor colorWithCalibratedWhite: 247/255 alpha: 1
 static const CGFloat kInactiveTabWhite = 247.0 / 255.0;
