@@ -27,11 +27,16 @@ rsync -a "${SOURCE_APP}/Contents" "${DEST}/"
 HOOK_BUILD="$(mktemp -d)"
 trap 'rm -rf "${HOOK_BUILD}"' EXIT
 
+# LockDown Browser ships x86_64 (Rosetta on Apple Silicon). The inject dylib must
+# include an x86_64 slice or dyld aborts. Universal2 covers Intel + Apple Silicon hosts.
 clang -dynamiclib -fobjc-arc -O2 \
+  -arch x86_64 -arch arm64 \
   -framework AppKit -framework Foundation \
   -install_name "@executable_path/../Frameworks/${DYLIB_NAME}" \
   -o "${HOOK_BUILD}/${DYLIB_NAME}" \
   "${HOOK_SRC}"
+
+lipo -info "${HOOK_BUILD}/${DYLIB_NAME}"
 
 mkdir -p "${DEST}/Contents/Frameworks"
 cp "${HOOK_BUILD}/${DYLIB_NAME}" "${DEST}/Contents/Frameworks/${DYLIB_NAME}"
